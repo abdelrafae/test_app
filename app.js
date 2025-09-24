@@ -3,6 +3,10 @@ const $ = (id) => document.getElementById(id);
 const fmt = (x) => (Number.isFinite(x) ? x.toFixed(5) : "—");
 const clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);
 
+// Safer constants
+const EPS = 1e-12;
+const P_EPS = 1e-12; // protect prob inputs to inverse CDFs
+
 function seedPRNG(seed){ // Mulberry32
   let t = seed >>> 0;
   return function(){
@@ -13,7 +17,7 @@ function seedPRNG(seed){ // Mulberry32
   }
 }
 
-// Normal CDF / inv (Acklam)
+// Normal CDF / inv (Acklam) with clamping
 function erf(x){
   const sign = Math.sign(x);
   x = Math.abs(x);
@@ -25,7 +29,7 @@ function erf(x){
 }
 function normcdf(x){ return 0.5 * (1 + erf(x / Math.SQRT2)); }
 function norminv(p){
-  if(p<=0||p>=1) return NaN;
+  p = clamp(p, P_EPS, 1 - P_EPS);
   const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
   const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
   const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
@@ -53,15 +57,24 @@ function percentile(arr, q){
   return a[lo] + (a[hi]-a[lo])*(idx-lo);
 }
 
-// LHS
+// Seeded Fisher–Yates shuffle
+function shuffleInPlace(arr, rng){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(rng()*(i+1));
+    const t = arr[i]; arr[i]=arr[j]; arr[j]=t;
+  }
+}
+
+// LHS (seeded; no Math.random())
 function lhs(n, k, rng){
-  const cut = Array.from({length:n+1}, (_,i)=>i/n);
-  const u = Array.from({length:n}, ()=>rng());
+  const cuts = Array.from({length:n+1}, (_,i)=>i/n);
   const H = Array.from({length:n}, ()=>Array(k).fill(0));
   for(let j=0;j<k;j++){
-    const rd = Array.from({length:n}, (__,i)=> (u[i])*(cut[i+1]-cut[i]) + cut[i]);
-    const order = Array.from({length:n}, (_,i)=>i).sort(()=>Math.random()-0.5);
-    for(let i=0;i<n;i++) H[i][j]=rd[order[i]];
+    const rands = Array.from({length:n}, ()=>rng());
+    const rd = rands.map((u,i)=> u*(cuts[i+1]-cuts[i]) + cuts[i]);
+    const idx = Array.from({length:n}, (_,i)=>i);
+    shuffleInPlace(idx, rng);
+    for(let i=0;i<n;i++) H[i][j] = rd[idx[i]];
   }
   return H;
 }
@@ -76,7 +89,7 @@ function cholesky(A){
       for(let k=0;k<j;k++) sum += L[i][k]*L[j][k];
       if(i===j){
         const v=A[i][i]-sum;
-        if(v<=1e-10) throw new Error("Matrix not positive definite");
+        if(!(v>EPS)) throw new Error("Correlation matrix not positive definite");
         L[i][j]=Math.sqrt(v);
       }else{
         L[i][j]=(A[i][j]-sum)/L[j][j];
@@ -95,11 +108,16 @@ function matVec(L, z){
 }
 
 // Distributions from bounds (min,max) only
-function inferNormal(xmin,xmax,z){ const mean=(xmin+xmax)/2; const std=(xmax-xmin)/(2*z); return [mean, Math.max(std,1e-16)]}
+function inferNormal(xmin,xmax,z){
+  const mean=(xmin+xmax)/2;
+  const std = (xmax-xmin)/(2*Math.max(z, EPS));
+  return [mean, Math.max(std, 1e-16)];
+}
 function inferLognormal(xmin,xmax,z){
   xmin=Math.max(xmin,1e-16); xmax=Math.max(xmax,1e-16);
   const lnmin=Math.log(xmin), lnmax=Math.log(xmax);
-  const mu=(lnmin+lnmax)/2; const sigma=(lnmax-lnmin)/(2*z);
+  const mu=(lnmin+lnmax)/2; 
+  const sigma=(lnmax-lnmin)/(2*Math.max(z, EPS));
   return [mu, Math.max(sigma,1e-16)];
 }
 function mapDist(dist, xmin, xmax, u, z){
@@ -110,39 +128,41 @@ function mapDist(dist, xmin, xmax, u, z){
   if(d==="uniform"){ for(let i=0;i<n;i++) out[i]=xmin+(xmax-xmin)*u[i]; return out; }
   if(d==="triangular"){
     const a=xmin, b=xmax, c=(xmin+xmax)/2;
-    const Fc = (b>a)? (c-a)/(b-a) : 0.5;
+    const denom = Math.max(b-a, EPS);
+    const Fc = (c-a)/denom;
     for(let i=0;i<n;i++){
-      const ui=u[i];
-      if(ui<Fc){ out[i]= a + Math.sqrt(ui*(b-a)*(c-a)); }
-      else { out[i]= b - Math.sqrt((1-ui)*(b-a)*(b-c)); }
+      const ui=clamp(u[i], P_EPS, 1-P_EPS);
+      if(ui<Fc){ out[i]= a + Math.sqrt(ui * (b-a) * Math.max(c-a,0)); }
+      else { out[i]= b - Math.sqrt((1-ui) * (b-a) * Math.max(b-c,0)); }
     }
     return out;
   }
   if(d==="pert"){
     // symmetric Beta-PERT with lambda=4 (a=min, m=(a+b)/2, b=max)
     const a=xmin, b=xmax, m=(a+b)/2, lam=4;
-    const alpha = 1 + lam*(m-a)/(b-a);
-    const beta  = 1 + lam*(b-m)/(b-a);
-    // invert Beta via normal approx (good enough for UI sampling)
-    function betainv(p, a, b){
-      const mu=a/(a+b), sigma=Math.sqrt(a*b/((a+b)*(a+b)*(a+b+1)));
+    const denom = Math.max(b-a, EPS);
+    const alpha = 1 + lam*(m-a)/denom;
+    const beta  = 1 + lam*(b-m)/denom;
+    function betainv(p, A, B){
+      // normal approx
+      const mu=A/(A+B), sigma=Math.sqrt(A*B/((A+B)*(A+B)*(A+B+1)));
       const x = mu + sigma*norminv(p);
       return clamp(x, 1e-9, 1-1e-9);
     }
     for(let i=0;i<n;i++){
-      const x = betainv(u[i], alpha, beta);
+      const x = betainv(clamp(u[i], P_EPS, 1-P_EPS), alpha, beta);
       out[i] = a + x*(b-a);
     }
     return out;
   }
   if(d==="normal"){
     const [mean,std]=inferNormal(xmin,xmax,z);
-    for(let i=0;i<n;i++){ out[i]= mean + std*norminv(u[i]); }
+    for(let i=0;i<n;i++){ out[i]= mean + std*norminv(clamp(u[i], P_EPS, 1-P_EPS)); }
     return out;
   }
   if(d==="lognormal"){
     const [mu,sigma]=inferLognormal(Math.max(xmin,1e-16),Math.max(xmax,1e-16),z);
-    for(let i=0;i<n;i++){ out[i]= Math.exp(mu + sigma*norminv(u[i])); }
+    for(let i=0;i<n;i++){ out[i]= Math.exp(mu + sigma*norminv(clamp(u[i], P_EPS, 1-P_EPS))); }
     return out;
   }
   throw new Error("Unsupported distribution: "+dist);
@@ -232,6 +252,16 @@ function safeEval(expr, scope){
     if(k==="E") return Math.E;
     if(k==="where") return (cond,a,b)=>cond? a:b;
     if(k==="clip") return (x,lo,hi)=> clamp(x,lo,hi);
+    // expose Math.* directly
+    if(k==="sin") return Math.sin;
+    if(k==="cos") return Math.cos;
+    if(k==="tan") return Math.tan;
+    if(k==="exp") return Math.exp;
+    if(k==="log") return Math.log;
+    if(k==="sqrt") return Math.sqrt;
+    if(k==="abs") return Math.abs;
+    if(k==="min") return Math.min;
+    if(k==="max") return Math.max;
     return scope[k];
   });
   return f(...args);
@@ -268,12 +298,12 @@ $("run").addEventListener("click", () => {
     if(n<=0) throw new Error("Iterations must be positive");
     if(!expr) throw new Error("Expression is required");
 
-    // coverage → z for central coverage: central = 2*Phi(z) - 1 → z = Φ⁻¹(0.5 + central/200)
+    // coverage → z for central coverage
     const z = norminv(0.5 + coverage/200);
 
     // Base U(0,1)
     const rng = seedPRNG(seed);
-    let U = useLhs ? lhs(n, specs.length, rng) : Array.from({length:n}, ()=> Array.from({length:specs.length}, ()=>rng()));
+    let U = useLhs ? lhs(n, specs.length, rng) : Array.from({length:n}, ()=> Array.from({length:specs.length}, ()=>clamp(rng(), P_EPS, 1-P_EPS)));
 
     // Gaussian copula correlation (optional)
     if(useCorr && specs.length>1){
@@ -288,7 +318,6 @@ $("run").addEventListener("click", () => {
         v = clamp(v, -0.95, 0.95);
         C[i][j]=v;
       });
-      // enforce symmetry + PSD
       for(let i=0;i<k;i++) for(let j=0;j<k;j++){ C[i][j] = (C[i][j]+C[j][i])/2; if(i===j) C[i][j]=1; }
       const L = cholesky(C);
 
@@ -321,7 +350,7 @@ $("run").addEventListener("click", () => {
 
     // Summary stats
     const mean = y.reduce((a,b)=>a+b,0)/n;
-    const sd = Math.sqrt(y.reduce((s,yi)=>s+(yi-mean)*(yi-mean),0)/(n-1));
+    const sd = Math.sqrt(y.reduce((s,yi)=>s+(yi-mean)*(yi-mean),0)/Math.max(n-1,1));
     const p10 = percentile(y,10), p50=percentile(y,50), p90=percentile(y,90);
 
     $("mMean").textContent = fmt(mean);
@@ -332,12 +361,12 @@ $("run").addEventListener("click", () => {
 
     // Preview (first 10)
     const rows = [];
+    const headers = names.concat(["OUTPUT"]);
     for(let i=0;i<Math.min(10,n);i++){
       const r = names.map(nm=> fmt(samples[nm][i]));
       r.push(fmt(y[i]));
       rows.push(r);
     }
-    const headers = names.concat(["OUTPUT"]);
     let html = "<table><thead><tr>"+ headers.map(h=>`<th>${h}</th>`).join("") +"</tr></thead><tbody>";
     for(const r of rows){ html += "<tr>"+ r.map(v=>`<td>${v}</td>`).join("") + "</tr>"; }
     html += "</tbody></table>";
@@ -389,14 +418,17 @@ $("clear").addEventListener("click", ()=>{
   ctxs.forEach(ctx=>{ ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); });
 });
 
+$("applyK").addEventListener("click", buildVars);
 $("applyK").click();
 
+// Drawing helpers (same as before, with extra guards)
 function drawHist(canvas, data, bins){
   const ctx = canvas.getContext("2d");
   const W=canvas.width, H=canvas.height;
   ctx.clearRect(0,0,W,H);
   const min = Math.min(...data), max = Math.max(...data);
-  const binW = (max-min)/bins || 1;
+  const span = Math.max(max-min, EPS);
+  const binW = span/bins;
   const counts = new Array(bins).fill(0);
   for(const v of data){
     let b = Math.floor((v-min)/binW);
@@ -421,11 +453,12 @@ function drawCDF(canvas, data){
   const a = Float64Array.from(data).sort();
   const n=a.length;
   const min=a[0], max=a[n-1];
+  const span = Math.max(max-min, EPS);
   ctx.strokeStyle="#e5e7eb"; ctx.beginPath();
   ctx.moveTo(40,H-30); ctx.lineTo(W-10,H-30); ctx.lineTo(W-10,10); ctx.stroke();
   ctx.strokeStyle="#2563eb"; ctx.beginPath();
   for(let i=0;i<n;i++){
-    const x = 40 + (W-50) * ( (a[i]-min) / (max-min || 1) );
+    const x = 40 + (W-50) * ( (a[i]-min) / span );
     const y = H-30 - (H-40) * ( i/(n-1) );
     if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
   }
