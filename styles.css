@@ -1,24 +1,15 @@
 :root{
-  --brand:#2563eb;
-  --bg:#ffffff;
-  --bg2:#f6f8ff;
-  --text:#111827;
-  --muted:#667085;
-  --border:#e5e7eb;
+  --brand:#2563eb; --bg:#ffffff; --bg2:#f6f8ff; --text:#111827; --muted:#667085; --border:#e5e7eb;
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
-body{
-  margin:0;
-  font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,"Apple Color Emoji";
-  color:var(--text);
-  background:var(--bg2);
-}
+body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,"Apple Color Emoji";
+     color:var(--text);background:var(--bg2)}
 .topbar{background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px}
 .topbar h1{margin:0;font-size:18px;color:var(--brand)}
 .container{max-width:1100px;margin:16px auto;padding:0 12px}
-.card{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px;
+      box-shadow:0 1px 2px rgba(16,24,40,.04)}
 h2{margin:0 0 12px;font-size:16px}
 .row{display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:center;margin-bottom:10px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
@@ -32,8 +23,7 @@ button.secondary{background:#fff;color:var(--brand);border:1px solid var(--brand
 #vars .vcard{border:1px dashed var(--border);border-radius:12px;padding:12px;margin-bottom:10px;background:#fff}
 .vgrid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
 .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:10px}
-.m-label{font-size:12px;color:var(--muted)}
-.m-val{font-weight:700}
+.m-label{font-size:12px;color:var(--muted)} .m-val{font-weight:700}
 #preview table{border-collapse:collapse;width:100%}
 #preview th,#preview td{border:1px solid var(--border);padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums}
 #preview th{text-align:left;background:#fafafa}
