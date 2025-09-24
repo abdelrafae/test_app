@@ -1,96 +1,22 @@
-:root {
-  --brand: #2748d9;
-  --bg: #ffffff;
-  --bg-2: #f6f8ff;
-  --text: #1f2a44;
-  --muted: #667085;
-  --border: #e5e7eb;
-}
-
-* { box-sizing: border-box; }
-html, body { height: 100%; }
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji";
-  color: var(--text);
-  background: var(--bg-2);
+  font-family: ui-sans-serif, system-ui, Arial, sans-serif;
+  background: #f6f8ff;
+  color: #111827;
 }
-
 .topbar {
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  background: #fff;
+  border-bottom: 1px solid #ddd;
   padding: 12px 16px;
 }
-.topbar h1 { margin: 0; font-size: 18px; color: var(--brand); }
-
-.container { max-width: 880px; margin: 16px auto; padding: 0 12px; }
-
-.card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+.container {
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 0 12px;
 }
-
-h2 { margin: 0 0 12px; font-size: 16px; }
-
-.row {
-  display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 16px;
-  margin-top: 6px;
-}
-.grid .row { grid-template-columns: 1fr; margin-bottom: 0; }
-
-label { color: var(--muted); font-size: 13px; }
-input, select, button {
-  font: inherit;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  padding: 10px 12px;
-  width: 100%;
-  background: #fff;
-  color: var(--text);
-}
-select { cursor: pointer; }
-
-.btns { display: flex; gap: 10px; margin-top: 10px; }
-button {
-  background: var(--brand);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-}
-button.secondary {
-  background: #fff;
-  color: var(--brand);
-  border: 1px solid var(--brand);
-}
-
-.hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
-
-.kv {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr 0.8fr;
-  row-gap: 8px; column-gap: 12px;
-  align-items: center;
-  font-size: 15px;
-}
-.kv div:nth-child(3n) { text-align: right; color: var(--muted); }
-
 .foot {
   text-align: center;
-  color: var(--muted);
+  color: #666;
   font-size: 12px;
-  padding: 24px 0 40px;
+  padding: 20px;
 }
