@@ -1,10 +1,10 @@
 {
-  "name": "Reservoir QuickCalc",
-  "short_name": "QuickCalc",
+  "name": "Monte Carlo Studio – Bounds-Only",
+  "short_name": "MC Studio",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#2748D9",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
   "icons": [
     {
       "src": "icons/icon-192.png",
