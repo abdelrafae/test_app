@@ -4,22 +4,106 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Monte Carlo Studio – Bounds-Only</title>
+
+  <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#2563eb" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="MC Studio" />
+
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
     <h1>Monte Carlo Studio – Bounds-Only</h1>
   </header>
+
   <main class="container">
-    <p>Monte Carlo Bounds PWA running…</p>
+    <section class="card">
+      <h2>Settings</h2>
+      <div class="grid-4">
+        <div class="row"><label>Iterations</label><input id="iters" type="number" min="100" step="1000" value="200000"></div>
+        <div class="row"><label>Random Seed</label><input id="seed" type="number" value="42"></div>
+        <div class="row"><label>Use LHS</label><input id="useLhs" type="checkbox" checked></div>
+        <div class="row"><label>Impose Correlations</label><input id="useCorr" type="checkbox"></div>
+      </div>
+      <div class="row">
+        <label>Central coverage % for (min, max)</label>
+        <input id="coverage" type="range" min="50" max="99" step="1" value="90" oninput="coverageVal.textContent=this.value+'%'">
+        <span id="coverageVal">90%</span>
+      </div>
+      <p class="hint">Normal/Lognormal inference: Treat min/max as central coverage bounds (e.g., 90% → ±1.645σ).</p>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <h2 style="margin:0;">Variables</h2>
+        <div style="text-align:right">
+          <label for="kVars" style="margin-right:8px;">Number of variables</label>
+          <input id="kVars" type="number" min="1" max="100" value="4" style="width:90px">
+          <button id="applyK" class="secondary" style="margin-left:8px;">Apply</button>
+        </div>
+      </div>
+      <p class="hint">Distributions supported from bounds-only: fixed, uniform, triangular (symmetric), normal, lognormal, PERT (symmetric, λ=4). Min/Max accept 5 decimals.</p>
+      <div id="vars"></div>
+    </section>
+
+    <section class="card" id="corrSection" style="display:none;">
+      <h2>Correlation Matrix</h2>
+      <p class="hint">Edit the matrix (1.0 on diagonal). Values in [-0.95, 0.95]. Must be symmetric and positive definite.</p>
+      <div id="corrTable"></div>
+    </section>
+
+    <section class="card">
+      <h2>Model Expression</h2>
+      <p class="hint">Use your variable names exactly. Example: <code>Qi*365 - CAPEX</code>. The result is <b>OUTPUT</b>. Use <code>^</code> or <code>**</code> for power.</p>
+      <input id="expr" type="text" value="X1+X2+X3+X4">
+      <div class="btns">
+        <button id="run">Run Simulation</button>
+        <button id="clear" class="secondary">Clear results</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Results</h2>
+      <div class="metrics">
+        <div><div class="m-label">Mean</div><div class="m-val" id="mMean">-</div></div>
+        <div><div class="m-label">Std Dev</div><div class="m-val" id="mStd">-</div></div>
+        <div><div class="m-label">P10</div><div class="m-val" id="mP10">-</div></div>
+        <div><div class="m-label">P50</div><div class="m-val" id="mP50">-</div></div>
+        <div><div class="m-label">P90</div><div class="m-val" id="mP90">-</div></div>
+      </div>
+
+      <h3>Preview (first 10 rows)</h3>
+      <div id="preview"></div>
+
+      <h3>Charts</h3>
+      <div class="charts">
+        <div class="chart">
+          <canvas id="hist" width="600" height="320"></canvas>
+          <div class="c-title">Output Distribution (Histogram)</div>
+        </div>
+        <div class="chart">
+          <canvas id="cdf" width="600" height="320"></canvas>
+          <div class="c-title">Empirical CDF</div>
+        </div>
+        <div class="chart">
+          <canvas id="tornado" width="600" height="320"></canvas>
+          <div class="c-title">Pearson Correlation with OUTPUT (Tornado)</div>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button id="dlData" class="secondary">Download Simulated Data (CSV)</button>
+        <button id="dlSummary" class="secondary">Download Summary (CSV)</button>
+      </div>
+    </section>
   </main>
+
   <footer class="foot">© <span id="year"></span> MC Studio</footer>
+
   <script src="app.js"></script>
 </body>
 </html>
