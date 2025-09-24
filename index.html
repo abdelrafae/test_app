@@ -1,157 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Monte Carlo Studio – Bounds-Only (PyScript)</title>
-
-  <!-- PyScript (Python in the browser) -->
-  <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
-  <script defer src="https://pyscript.net/latest/pyscript.js"></script>
-
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <title>Reservoir QuickCalc – Monte Carlo</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin:20px; }
+    .var { border:1px solid #ccc; padding:10px; margin-bottom:10px; border-radius:8px; }
+    label { display:block; margin-top:6px; }
+    input, select, button { padding:6px; margin-top:4px; }
+    .results { margin-top:20px; }
+  </style>
 </head>
 <body>
-  <header class="topbar"><h1>Monte Carlo Studio – Bounds-Only (PyScript)</h1></header>
+  <h1>Reservoir QuickCalc – Monte Carlo</h1>
 
-  <main class="container">
+  <div>
+    <label>Iterations <input id="iters" type="number" value="50000"></label>
+    <label>Equation Preset
+      <select id="preset">
+        <option value="">Custom (use expression box)</option>
+        <option value="Arps Cumulative">Arps Cumulative</option>
+      </select>
+    </label>
+    <label>Custom Expression <input id="expr" size="70" value="X1+X2"></label>
+  </div>
 
-    <section class="card">
-      <h2>Settings</h2>
-      <div class="grid-4">
-        <div class="row"><label>Iterations</label><input id="iters" type="number" min="100" step="1000" value="50000"></div>
-        <div class="row"><label>Random Seed</label><input id="seed" type="number" value="42"></div>
-        <div class="row"><label>Use LHS</label><input id="useLhs" type="checkbox" checked></div>
-        <div class="row"><label>Impose Correlations</label><input id="useCorr" type="checkbox"></div>
-      </div>
-      <div class="row">
-        <label>Central coverage % for (min, max)</label>
-        <input id="coverage" type="range" min="50" max="99" step="1" value="90" oninput="document.getElementById('covVal').textContent=this.value+'%';">
-        <span id="covVal">90%</span>
-      </div>
-      <p class="hint">Normal/Lognormal: treat min/max as central coverage bounds (e.g., 90% → ±1.645σ).</p>
-    </section>
+  <h2>Variables</h2>
+  <div id="vars"></div>
+  <button onclick="addVar()">Add Variable</button><br><br>
+  <button onclick="runSim()">Run Simulation</button>
 
-    <section class="card">
-      <div class="row">
-        <h2 style="margin:0;">Variables</h2>
-        <div style="text-align:right">
-          <label for="kVars" style="margin-right:8px;">Number of variables</label>
-          <input id="kVars" type="number" min="1" max="20" value="4" style="width:90px">
-          <button id="applyK" class="secondary" onclick="buildVars()">Apply</button>
-        </div>
-      </div>
-      <p class="hint">Distributions: fixed, uniform, triangular (sym), normal, lognormal, PERT (sym, λ=4). Min/Max accept 5 decimals.</p>
-      <div id="vars"></div>
-    </section>
+  <div class="results">
+    <h2>Results</h2>
+    <div id="summary"></div>
+    <div id="hist"></div>
+    <div id="cdf"></div>
+    <div id="tornado"></div>
+  </div>
 
-    <section class="card" id="corrSection" style="display:none;">
-      <h2>Correlation Matrix</h2>
-      <p class="hint">Edit the matrix (1.0 on diagonal). Values in [-0.95, 0.95]. Must be symmetric & positive-definite.</p>
-      <div id="corrTable"></div>
-    </section>
-
-    <section class="card">
-      <h2>Model Expression</h2>
-      <p class="hint">Use your variable names exactly. Example: <code>Qi*365 - CAPEX</code>. The result is OUTPUT. Use <code>**</code> or <code>^</code> for power.</p>
-      <input id="expr" type="text" value="X1+X2+X3+X4">
-      <div class="btns">
-        <button id="run" py-click="run_sim()">Run Simulation</button>
-        <button id="clear" class="secondary" py-click="clear_results()">Clear results</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Results</h2>
-      <div class="metrics">
-        <div><div class="m-label">Mean</div><div class="m-val" id="mMean">-</div></div>
-        <div><div class="m-label">Std Dev</div><div class="m-val" id="mStd">-</div></div>
-        <div><div class="m-label">P10</div><div class="m-val" id="mP10">-</div></div>
-        <div><div class="m-label">P50</div><div class="m-val" id="mP50">-</div></div>
-        <div><div class="m-label">P90</div><div class="m-val" id="mP90">-</div></div>
-      </div>
-
-      <h3>Preview (first 10 rows)</h3>
-      <div id="preview"></div>
-
-      <h3>Charts</h3>
-      <div class="charts">
-        <div class="chart"><div id="hist"></div><div class="c-title">Output Distribution (Histogram)</div></div>
-        <div class="chart"><div id="cdf"></div><div class="c-title">Empirical CDF</div></div>
-        <div class="chart"><div id="tornado"></div><div class="c-title">Pearson Correlation with OUTPUT</div></div>
-      </div>
-
-      <div class="btns">
-        <button id="dlData" class="secondary" py-click="download_data()">Download Simulated Data (CSV)</button>
-        <button id="dlSummary" class="secondary" py-click="download_summary()">Download Summary (CSV)</button>
-      </div>
-    </section>
-  </main>
-
-  <footer class="foot">© <span id="year"></span> MC Studio</footer>
-
-  <!-- Build variable rows with JS (simple DOM helper) -->
-  <script>
-    const DIST_LIST = ["fixed","uniform","triangular","normal","lognormal","PERT"];
-    function buildVars(){
-      const k = parseInt(document.getElementById("kVars").value);
-      const wrap = document.getElementById("vars");
-      wrap.innerHTML="";
-      for(let i=0;i<k;i++){
-        const div = document.createElement("div");
-        div.className = "vcard";
-        div.innerHTML = `
-          <div class="vgrid">
-            <div><label>Name</label><input class="v_name" value="X${i+1}"></div>
-            <div><label>Distribution</label>
-              <select class="v_dist">${DIST_LIST.map((d,j)=>`<option value="${d}" ${i===1&&j===3?"selected":(j===1?"selected":"")}>${d}</option>`).join("")}</select>
-            </div>
-            <div><label>min</label><input class="v_min" type="number" step="0.00001" value="${i===0?0:"0.00000"}"></div>
-            <div><label>max</label><input class="v_max" type="number" step="0.00001" value="${i===0?1:"1.00000"}"></div>
-          </div>`;
-        wrap.appendChild(div);
-      }
-      // refresh correlation matrix visibility
-      document.getElementById("corrSection").style.display =
-        (document.getElementById("useCorr").checked && k>1) ? "" : "none";
-      buildCorr();
+<script>
+/* ========= Presets ========= */
+const PRESETS = {
+  "Arps Cumulative": (ctx) => {
+    const {Qi, Di, b, qe} = ctx;
+    if (qe >= Qi) return 0;
+    if (Math.abs(b) < 1e-8) {
+      return (Qi - qe) / Di; // Exponential
+    } else if (Math.abs(b - 1) < 1e-8) {
+      return (Qi / Di) * Math.log(Qi / qe); // Harmonic
+    } else {
+      return Qi / ((1 - b) * Di) * (1 - Math.pow(qe / Qi, (1 - b) / b)); // Hyperbolic
     }
-    function buildCorr(){
-      const k = parseInt(document.getElementById("kVars").value);
-      const useCorr = document.getElementById("useCorr").checked;
-      const sec = document.getElementById("corrSection");
-      sec.style.display = (useCorr && k>1) ? "" : "none";
-      if(!(useCorr && k>1)) return;
-      const tbl = document.createElement("table");
-      tbl.style.borderCollapse="collapse"; tbl.style.width="100%";
-      const header = document.createElement("tr");
-      header.innerHTML = "<th></th>" + Array.from({length:k}, (_,j)=>`<th>X${j+1}</th>`).join("");
-      tbl.appendChild(header);
-      for(let i=0;i<k;i++){
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<th style="text-align:left">X${i+1}</th>` +
-          Array.from({length:k}, (_,j)=>{
-            const val = (i===j)?1:0;
-            return `<td><input class="corr" data-i="${i}" data-j="${j}" type="number" step="0.01" min="-0.95" max="0.95" value="${val}" style="width:80px"></td>`;
-          }).join("");
-        tbl.appendChild(tr);
-      }
-      const target = document.getElementById("corrTable");
-      target.innerHTML=""; target.appendChild(tbl);
+  }
+};
+
+const PRESET_EXPRESSIONS = {
+  "Arps Cumulative": "case(b=0)→(Qi - qe)/Di ; case(b=1)→(Qi/Di)*ln(Qi/qe) ; else→Qi/((1-b)*Di)*(1-(qe/Qi)^((1-b)/b))"
+};
+
+/* ========= Variable UI ========= */
+let varCount=0;
+function addVar(name="X"+(varCount+1)){
+  varCount++;
+  const div=document.createElement("div");
+  div.className="var";
+  div.innerHTML=`
+    <label>Name <input class="name" value="${name}"></label>
+    <label>Distribution 
+      <select class="dist">
+        <option>uniform</option>
+        <option>triangular</option>
+        <option>normal</option>
+        <option>lognormal</option>
+        <option>PERT</option>
+        <option>fixed</option>
+      </select>
+    </label>
+    <label>Min <input type="number" step="0.00001" class="min" value="0"></label>
+    <label>Max <input type="number" step="0.00001" class="max" value="1"></label>
+  `;
+  document.getElementById("vars").appendChild(div);
+}
+// defaults for Arps
+addVar("Qi");
+addVar("Di");
+addVar("b");
+addVar("qe");
+
+/* ========= Distribution Samplers ========= */
+function randn(){ let u=Math.random(), v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function sample(dist,xmin,xmax){
+  if(dist=="fixed") return (xmin+xmax)/2;
+  if(dist=="uniform") return xmin+(xmax-xmin)*Math.random();
+  if(dist=="triangular"){
+    let u=Math.random(), c=(xmin+xmax)/2, Fc=(c-xmin)/(xmax-xmin);
+    return u<Fc ? xmin+Math.sqrt(u*(xmax-xmin)*(c-xmin))
+                : xmax-Math.sqrt((1-u)*(xmax-xmin)*(xmax-c));
+  }
+  if(dist=="normal"){ let mean=(xmin+xmax)/2, std=(xmax-xmin)/3.3; return mean+std*randn(); }
+  if(dist=="lognormal"){ let mu=Math.log((xmin+xmax)/2), sigma=(Math.log(xmax)-Math.log(xmin))/3.3;
+    return Math.exp(mu+sigma*randn()); }
+  if(dist=="PERT"){ let a=xmin,b=xmax; return a+(b-a)*Math.random(); }
+}
+
+/* ========= Simulation ========= */
+function runSim(){
+  const iters=parseInt(document.getElementById("iters").value);
+  const expr=document.getElementById("expr").value;
+  const preset=document.getElementById("preset").value;
+
+  const cards=document.querySelectorAll(".var");
+  let names=[], specs=[];
+  cards.forEach(c=>{
+    names.push(c.querySelector(".name").value);
+    specs.push({
+      dist:c.querySelector(".dist").value,
+      min:parseFloat(c.querySelector(".min").value),
+      max:parseFloat(c.querySelector(".max").value)
+    });
+  });
+
+  let data=[], samples={}; names.forEach(n=>samples[n]=[]);
+  for(let i=0;i<iters;i++){
+    let ctx={};
+    names.forEach((n,j)=>{
+      let v=sample(specs[j].dist,specs[j].min,specs[j].max);
+      ctx[n]=v; samples[n].push(v);
+    });
+    let val;
+    if(preset && PRESETS[preset]){
+      val=PRESETS[preset](ctx);
+    } else {
+      try{ val=eval(expr.replace(/\b([A-Za-z]\w*)\b/g,(m)=>ctx[m]??m)); }
+      catch(e){ console.error("Eval error",e); val=NaN; }
     }
-    document.getElementById("useCorr").addEventListener("change", buildCorr);
-    buildVars();
-    document.getElementById("year").textContent = new Date().getFullYear();
-  </script>
+    data.push(val);
+  }
 
-  <!-- Python app -->
-  <py-config>
-    packages = [
-      "numpy",
-      "matplotlib"
-    ]
-  </py-config>
+  data=data.filter(x=>!isNaN(x)).sort((a,b)=>a-b);
+  const mean=data.reduce((a,b)=>a+b,0)/data.length;
+  const p10=data[Math.floor(0.1*data.length)], 
+        p50=data[Math.floor(0.5*data.length)], 
+        p90=data[Math.floor(0.9*data.length)];
 
-  <py-script src="main.py"></py-script>
+  document.getElementById("summary").innerHTML=
+    `Mean=${mean.toFixed(2)} P10=${p10.toFixed(2)} P50=${p50.toFixed(2)} P90=${p90.toFixed(2)}`;
+
+  Plotly.newPlot("hist",[ {x:data,type:"histogram"} ]);
+  Plotly.newPlot("cdf",[ {x:data,y:data.map((d,i)=>i/data.length),mode:"lines"} ]);
+
+  let cors=names.map(n=>{
+    let xi=samples[n], xm=xi.reduce((a,b)=>a+b,0)/iters;
+    let num=0, denx=0, deny=0;
+    data.forEach((y,i)=>{ num+=(xi[i]-xm)*(y-mean); denx+=(xi[i]-xm)**2; deny+=(y-mean)**2; });
+    let r=num/Math.sqrt(denx*deny);
+    return {name:n, r:r};
+  }).sort((a,b)=>Math.abs(a.r)-Math.abs(b.r));
+  Plotly.newPlot("tornado",[ {x:cors.map(c=>c.r),y:cors.map(c=>c.name),type:"bar",orientation:"h"} ]);
+}
+
+/* ========= Preset → Expression Sync ========= */
+document.getElementById("preset").addEventListener("change", (e)=>{
+  const val=e.target.value;
+  if(val && PRESET_EXPRESSIONS[val]){
+    document.getElementById("expr").value=PRESET_EXPRESSIONS[val];
+  }
+});
+</script>
 </body>
 </html>
