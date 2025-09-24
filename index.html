@@ -3,96 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Reservoir QuickCalc</title>
-
-  <!-- PWA -->
+  <title>Monte Carlo Studio – Bounds-Only</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#2748D9" />
+  <meta name="theme-color" content="#2563eb" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="QuickCalc" />
-
+  <meta name="apple-mobile-web-app-title" content="MC Studio" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <h1>Reservoir QuickCalc</h1>
+    <h1>Monte Carlo Studio – Bounds-Only</h1>
   </header>
-
   <main class="container">
-    <section class="card">
-      <h2>Inputs</h2>
-
-      <div class="row">
-        <label>Decline Type</label>
-        <select id="decline">
-          <option value="exp">Exponential (b = 0)</option>
-          <option value="hyp" selected>Hyperbolic (0 &lt; b &lt; 1)</option>
-          <option value="har">Harmonic (b = 1)</option>
-        </select>
-      </div>
-
-      <div class="row">
-        <label>Time Unit</label>
-        <select id="unit">
-          <option value="days">Days</option>
-          <option value="months" selected>Months</option>
-          <option value="years">Years</option>
-        </select>
-      </div>
-
-      <div class="grid">
-        <div class="row">
-          <label for="qi">qi (initial rate)</label>
-          <input id="qi" type="number" inputmode="decimal" step="any" value="1000" />
-        </div>
-        <div class="row">
-          <label for="di">Di (per time-unit)</label>
-          <input id="di" type="number" inputmode="decimal" step="any" value="0.10" />
-        </div>
-        <div class="row" id="bRow">
-          <label for="b">b-factor (0 &lt; b &lt; 1)</label>
-          <input id="b" type="number" inputmode="decimal" step="any" value="0.6" />
-        </div>
-        <div class="row">
-          <label for="t">t (time)</label>
-          <input id="t" type="number" inputmode="decimal" step="any" value="12" />
-        </div>
-        <div class="row">
-          <label for="qecon">Economic limit rate (q<sub>econ</sub>)</label>
-          <input id="qecon" type="number" inputmode="decimal" step="any" value="50" />
-        </div>
-      </div>
-
-      <div class="btns">
-        <button id="compute">Compute</button>
-        <button id="clear" class="secondary">Clear results</button>
-      </div>
-      <p class="hint">Make sure <strong>Di</strong> and <strong>t</strong> use the selected time unit.</p>
-    </section>
-
-    <section class="card">
-      <h2>Results</h2>
-      <div class="kv">
-        <div>q(t)</div><div id="qt">-</div><div id="qtUnit">STB/month</div>
-        <div>Np(t)</div><div id="np">-</div><div>STB</div>
-        <div>t @ economic limit</div><div id="te">-</div><div id="tUnit">months</div>
-        <div>EUR @ economic limit</div><div id="eur">-</div><div>STB</div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Notes</h2>
-      <ul>
-        <li>For hyperbolic, use <code>0 &lt; b &lt; 1</code>. Use exponential for <code>b=0</code> and harmonic for <code>b=1</code>.</li>
-        <li>All formulae are Arps; field constraints can change outcomes.</li>
-      </ul>
-    </section>
+    <p>Monte Carlo Bounds PWA running…</p>
   </main>
-
-  <footer class="foot">© <span id="year"></span> QuickCalc</footer>
-
+  <footer class="foot">© <span id="year"></span> MC Studio</footer>
   <script src="app.js"></script>
 </body>
 </html>
